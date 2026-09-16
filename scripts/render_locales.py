@@ -87,6 +87,20 @@ def outputs() -> dict[Path, str]:
         for other in languages:
             if other['id'] != current['id']:
                 metadata.append(f'  <meta property="og:locale:alternate" content="{escape(other["og_locale"])}">')
+        # Both language pages describe the same site, not separate /zh/ websites.
+        # JSON must remain raw script data, not HTML-escaped attribute text.
+        website = json.dumps({
+            '@context': 'https://schema.org',
+            '@type': 'WebSite',
+            'name': 'Krillhub',
+            'url': origin + '/',
+        }, ensure_ascii=False, indent=2)
+        website = website.replace('&', r'\u0026').replace('<', r'\u003c').replace('>', r'\u003e')
+        metadata.extend([
+            '  <script type="application/ld+json">',
+            '\n'.join('  ' + line for line in website.splitlines()),
+            '  </script>',
+        ])
         nav = [f'        <nav class="language-switch" aria-label="{escape(catalog["text"]["language_label"])}">']
         for other in languages:
             relative = posixpath.relpath(other['path'] or '.', current['path'] or '.') + '/'

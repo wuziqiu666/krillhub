@@ -82,7 +82,10 @@ class LanguageContractTests(unittest.TestCase):
             self.assertEqual([a['hreflang'] for a in links if a.get('aria-current') == 'page'], [lang])
             for tag, key in [('script', 'src'), ('link', 'href')]:
                 for item in doc.find(tag):
-                    if tag == 'link' and item.get('rel') != 'stylesheet':
+                    if tag == 'script' and item.get('type') == 'application/ld+json':
+                        self.assertNotIn('src', item, 'JSON-LD must be embedded data')
+                        continue
+                    if tag == 'link' and item.get('rel') not in ('stylesheet', 'icon'):
                         continue
                     url = urlsplit(urljoin(base, item[key]))
                     self.assertEqual(url.netloc, urlsplit(ORIGIN).netloc)
@@ -112,7 +115,10 @@ class LanguageContractTests(unittest.TestCase):
             self.assertEqual(self.docs[code].find('button', id='help-button')[0]['aria-label'], catalog['text']['about'])
             self.assertTrue(self.docs[code].find('noscript'))
             for script in self.docs[code].find('script'):
-                self.assertIn('src', script, 'Do not add executable inline scripts')
+                if script.get('type') == 'application/ld+json':
+                    self.assertNotIn('src', script, 'JSON-LD must be embedded data')
+                else:
+                    self.assertIn('src', script, 'Do not add executable inline scripts')
         app = (PUBLIC / 'app.js').read_text()
         for forbidden in ('navigator.language', 'localStorage.', 'document.cookie', 'fetch('):
             self.assertNotIn(forbidden, app)
