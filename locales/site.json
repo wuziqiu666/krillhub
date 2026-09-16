@@ -1,0 +1,22 @@
+{
+  "origin": "https://krillhub.com",
+  "default": "en",
+  "languages": [
+    {
+      "id": "en",
+      "lang": "en",
+      "og_locale": "en_US",
+      "path": "",
+      "name": "English",
+      "label": "EN"
+    },
+    {
+      "id": "zh",
+      "lang": "zh-Hans",
+      "og_locale": "zh_CN",
+      "path": "zh/",
+      "name": "简体中文",
+      "label": "中文"
+    }
+  ]
+}

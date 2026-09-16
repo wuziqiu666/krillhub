@@ -3,6 +3,20 @@
   'use strict';
   const $ = (id) => document.getElementById(id);
   const svg = $('scene');
+  // The URL selects a complete static language page. No language guessing,
+  // redirects, translation API, localStorage or additional runtime bundle.
+  const t = (key, params = {}) => {
+    const message = $('ocean').getAttribute(`data-i18n-${key}`);
+    if (message === null) throw new Error(`Missing interface message: ${key}`);
+    return message.replace(/\{(\w+)\}/g, (match, name) =>
+      Object.prototype.hasOwnProperty.call(params, name) ? String(params[name]) : match);
+  };
+  // Keep direct-file previews usable; HTTP language links remain clean URLs.
+  if (window.location.protocol === 'file:') {
+    document.querySelectorAll('.language-switch a, .brand').forEach((link) => {
+      link.href = new URL('index.html', link.href).href;
+    });
+  }
   const NS = 'http://www.w3.org/2000/svg';
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const dialog = $('about-dialog');
@@ -145,9 +159,9 @@
     selected = animal;
     explore();
     svg.dataset.mode = 'follow';
-    const label = `KRILL ${String(animal.index + 1).padStart(3, '0')}`;
+    const label = t('krill-label', { number: String(animal.index + 1).padStart(3, '0') });
     $('reticle-label').textContent = label;
-    $('selection-label').textContent = `正在跟随 · ${label}`;
+    $('selection-label').textContent = t('following', { label });
     $('selection-card').hidden = false;
     $('reticle').setAttribute('visibility', 'visible');
     setCamera({
@@ -199,7 +213,7 @@
       // Never sweep the camera across the whole scene when a procedural loop wraps.
       if (selected === animal && Math.abs(animal.x - previousX) > 1600) {
         clearSelection();
-        notify('这束微光游向了远方。按 F，发现下一位旅伴。');
+        notify(t('lost-krill'));
       }
     }
     for (const particle of dust) {
@@ -238,9 +252,9 @@
     paused = value;
     svg.dataset.motion = paused ? 'paused' : 'playing';
     $('pause-button').setAttribute('aria-pressed', String(paused));
-    $('pause-button').setAttribute('aria-label', paused ? '播放动画' : '暂停动画');
+    $('pause-button').setAttribute('aria-label', t(paused ? 'play' : 'pause'));
     $('pause-icon').setAttribute('href', paused ? '#icon-play' : '#icon-pause');
-    $('motion-label').textContent = paused ? '此刻，静谧' : '随潮而行';
+    $('motion-label').textContent = t(paused ? 'motion-paused' : 'motion-playing');
     requestTick();
   }
   function resize() {
@@ -360,14 +374,14 @@
     const speeds = [.5, 1, 2];
     speed = speeds[(speeds.indexOf(speed) + 1) % speeds.length];
     $('speed-button').textContent = `${speed}×`;
-    $('speed-button').setAttribute('aria-label', `动画速度 ${speed} 倍，点击切换`);
+    $('speed-button').setAttribute('aria-label', t('speed', { speed }));
   });
   function setImmersive(value) {
     immersive = value;
     document.body.classList.toggle('immersive', value);
     for (const node of document.querySelectorAll('.ui')) node.inert = value;
     $('immersive-button').setAttribute('aria-pressed', String(value));
-    $('immersive-button').setAttribute('aria-label', value ? '退出沉浸模式' : '进入沉浸模式');
+    $('immersive-button').setAttribute('aria-label', t(value ? 'exit-immersive' : 'enter-immersive'));
     $('exit-immersive').hidden = !value;
     (value ? $('exit-immersive') : $('immersive-button')).focus({ preventScroll: true });
   }
@@ -385,12 +399,12 @@
     try {
       if (document.fullscreenElement) await document.exitFullscreen();
       else await document.documentElement.requestFullscreen();
-    } catch { notify('当前浏览器未允许全屏，可以使用沉浸模式。'); }
+    } catch { notify(t('fullscreen-unavailable')); }
   });
   document.addEventListener('fullscreenchange', () => {
     const full = Boolean(document.fullscreenElement);
     $('fullscreen-button').setAttribute('aria-pressed', String(full));
-    $('fullscreen-button').setAttribute('aria-label', full ? '退出全屏' : '进入全屏');
+    $('fullscreen-button').setAttribute('aria-label', t(full ? 'exit-fullscreen' : 'enter-fullscreen'));
     resize();
   });
   document.addEventListener('keydown', (event) => {
