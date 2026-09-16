@@ -1,0 +1,11 @@
+.DS_Store
+Thumbs.db
+node_modules/
+.wrangler/
+.venv/
+__pycache__/
+.env
+.env.*
+.dev.vars
+.dev.vars.*
+test-results/
