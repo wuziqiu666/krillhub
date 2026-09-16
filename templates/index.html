@@ -11,6 +11,7 @@
 {{metadata}}
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%230b2935'/%3E%3Cpath d='M10 34Q18 13 40 24L48 33Q31 26 19 42Z' fill='%23f0b29e'/%3E%3Cpath d='M41 26Q52 10 59 18M43 29Q55 19 61 26M20 37L15 48M26 33L26 46M33 31L36 43' fill='none' stroke='%23f0b29e' stroke-width='2'/%3E%3Ccircle cx='41' cy='26' r='2' fill='%230b2935'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="{{assets}}style.css">
+  <script src="{{assets}}swarm.js" defer></script>
   <script src="{{assets}}app.js" defer></script>
 </head>
 <body>
@@ -90,7 +91,7 @@
         </g>
       </g>
       <g id="dust-back" data-depth="0.55" pointer-events="none"></g>
-      <g id="krill-back" data-depth="0.68" aria-hidden="true"></g>
+      <g id="krill-back" data-depth="0.86" aria-hidden="true"></g>
       <g id="current-layer" data-depth="0.85" pointer-events="none" fill="none" stroke="#87bdb5" stroke-opacity=".065">
         <path d="M-500 775C150 540 300 900 750 570S1370 170 2060 325"/>
         <path d="M-500 803C150 560 300 930 760 594S1390 190 2060 350"/>
@@ -144,7 +145,7 @@
       </div>
       <div class="camera-tools" role="toolbar" aria-label="{{camera_label}}">
         <button id="zoom-out" class="icon-button" aria-label="{{zoom_out}}" title="{{zoom_out_title}}"><svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><use href="#icon-minus"/></svg></button>
-        <output id="zoom-label" aria-label="{{zoom_label}}">100%</output>
+        <div class="zoom-readout"><output id="zoom-label" aria-label="{{zoom_label}}">100%</output><span id="lod-label" aria-hidden="true">{{lod_swarm}}</span></div>
         <button id="zoom-in" class="icon-button" aria-label="{{zoom_in}}" title="{{zoom_in_title}}"><svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><use href="#icon-plus"/></svg></button>
         <span class="tool-divider" aria-hidden="true"></span>
         <button id="focus-button" class="focus-button" aria-label="{{focus_label}}" title="{{focus_title}}"><svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><use href="#icon-focus"/></svg><span>{{focus}}</span></button>
@@ -165,6 +166,7 @@
     <h2 id="about-title">{{about_title}}</h2>
     <p>{{about_copy}}</p>
     <p class="art-note">{{art_note}}</p>
+    <p class="lod-note">{{lod_note}}</p>
     <div class="instructions">
       <div><span>{{help_pan}}</span><span>{{help_pan_keys}}</span></div>
       <div><span>{{help_zoom}}</span><span>{{help_zoom_keys}} · <kbd>+</kbd> <kbd>−</kbd></span></div>

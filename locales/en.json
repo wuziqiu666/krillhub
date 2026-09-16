@@ -28,12 +28,12 @@
     "close_help": "Close instructions",
     "skip": "Skip to the interactive ocean",
     "scene_title": "The quiet migration — an ocean in motion",
-    "scene_description": "Coral-pink krill drift through layers of blue-green water. Drag to pan, scroll or pinch to zoom, and select a krill to follow. Press F to focus, 0 to reset, and Space to pause.",
+    "scene_description": "Dense coral-pink swarms move through blue-green water. Distant specks reveal individual krill as you zoom in. Drag to pan, scroll or pinch to zoom, select a speck to follow. F focuses, 0 resets, Space pauses.",
     "about": "About this ocean",
     "eyebrow": "KRILL IN MOTION",
     "intro_lead": "Even the smallest lives have a world to explore.",
-    "intro_line_one": "Dive into a quiet ocean.",
-    "intro_line_two": "Follow a swarm of krill on an endless journey.",
+    "intro_line_one": "An ocean of tiny lives, moving as one.",
+    "intro_line_two": "Zoom in. Discover the individual.",
     "explore": "Follow a little light",
     "following": "Following",
     "motion": "Drifting with the tide",
@@ -47,12 +47,12 @@
     "exit_immersive": "Exit immersive mode",
     "noscript": "Enable JavaScript to watch the krill animation and use drag, zoom and follow controls. You can still read this page and change its language.",
     "about_title": "One ocean. A tiny adventure.",
-    "about_copy": "Krillhub is an animated illustration you can explore. Light, currents and krill are drawn in SVG layers. Distant layers drift slowly while nearby layers glide past, creating 2.5D depth through flat parallax.",
+    "about_copy": "Krillhub is an animated SVG illustration with dense, patchy swarms. Flat layers drift at different speeds for 2.5D parallax. Zooming reveals silhouettes and detailed krill without switching to a 3D scene.",
     "art_note": "This is an artistic interpretation of krill migration, not a scientific simulation of animal behaviour, water depth or a real ocean location.",
     "help_pan": "Explore",
     "help_pan_keys": "Mouse / one-finger drag · Arrow keys",
     "help_zoom": "Zoom",
-    "help_zoom_keys": "Scroll / pinch",
+    "help_zoom_keys": "Scroll / pinch · 20–2,400%",
     "help_focus": "Focus and follow",
     "help_focus_keys": "Select a krill",
     "help_detail": "Take a closer look",
@@ -73,7 +73,9 @@
     "playback_sub": "LET IT FLOW",
     "field_notes": "FIELD NOTES / 001",
     "krill": "KRILL",
-    "language_label": "Language"
+    "language_label": "Language",
+    "lod_swarm": "SWARM",
+    "lod_note": "Zoom from 20% to 2,400%: distant specks become silhouettes, then detailed SVG krill. Every speck keeps its identity. Brightness and population are illustrative, not measured data."
   },
   "messages": {
     "krill-label": "KRILL {number}",
@@ -88,6 +90,9 @@
     "enter-immersive": "Enter immersive mode",
     "fullscreen-unavailable": "Fullscreen is unavailable in this browser. Try immersive mode instead.",
     "exit-fullscreen": "Exit fullscreen",
-    "enter-fullscreen": "Enter fullscreen"
+    "enter-fullscreen": "Enter fullscreen",
+    "lod-swarm": "SWARM",
+    "lod-shapes": "SHAPES",
+    "lod-detail": "DETAIL"
   }
 }

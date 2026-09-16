@@ -1,263 +1,195 @@
-"""Browser regression tests. Runtime assets have no Python/npm dependency.
+"""SVG LOD and interaction regression suite, including the language tests.
 
-python -m pip install playwright
-python -m playwright install chromium
-python tests/smoke.py
-
-Use --in-memory when browser navigation is unavailable in a sandbox. That mode
-checks the same HTML/CSS/JS through DOM injection, not HTTP/file asset loading.
-CHROMIUM_EXECUTABLE optionally selects an already installed Chromium binary.
+python tests/smoke.py                 # actual local HTTP + CSP, preferred
+python tests/smoke.py --in-memory     # DOM injection; URL tests explicitly skipped
+CHROMIUM_EXECUTABLE can point at an installed Chromium browser.
 """
-import argparse
-import json
-import os
-from pathlib import Path
 import unittest
-
-from playwright.sync_api import sync_playwright
-
-ROOT = Path(__file__).resolve().parents[1]
-PUBLIC = ROOT / 'public'
-parser = argparse.ArgumentParser()
-parser.add_argument('--in-memory', action='store_true')
-ARGS, REMAINING = parser.parse_known_args()
+import i18n_browser as harness
 
 
-class OceanTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.playwright = sync_playwright().start()
-        options = {'headless': True}
-        if os.environ.get('CHROMIUM_EXECUTABLE'):
-            options['executable_path'] = os.environ['CHROMIUM_EXECUTABLE']
-        cls.browser = cls.playwright.chromium.launch(**options)
+class SwarmTests(harness.LanguageBrowserTests):
+    def scene(self, page):
+        return page.locator('#scene').evaluate('el => ({...el.dataset})')
 
-    @classmethod
-    def tearDownClass(cls):
-        cls.browser.close()
-        cls.playwright.stop()
+    def zoom(self, page, presses):
+        page.locator('#scene').focus()
+        for _ in range(abs(presses)):
+            page.keyboard.press('=' if presses > 0 else '-')
+        page.wait_for_timeout(30)
 
-    def setUp(self):
-        self.errors = []
-        self.context = self.browser.new_context(
-            viewport={'width': 1440, 'height': 900}, reduced_motion='reduce'
-        )
-        self.page = self.context.new_page()
-        self.page.on('pageerror', lambda error: self.errors.append(str(error)))
-        self.load(self.page)
+    def assert_population_conserved(self, page):
+        counts = page.evaluate("""() => ({
+          population: +document.querySelector('#scene').dataset.population,
+          dots: [...document.querySelectorAll('.swarm-dots')].reduce((n,p) => n + (p.getAttribute('d').match(/M/g)||[]).length, 0),
+          shapes: [...document.querySelectorAll('.swarm-shapes')].reduce((n,p) => n + (p.getAttribute('d').match(/M/g)||[]).length / 2, 0),
+          detailed: document.querySelectorAll('.krill').length
+        })""")
+        self.assertEqual(counts['dots'] + counts['detailed'], counts['population'])
+        self.assertEqual(counts['shapes'] + counts['detailed'], counts['population'])
+        state = self.scene(page)
+        self.assertLessEqual(counts['detailed'], int(state['detailLimit']))
+        self.assertEqual(counts['detailed'], int(state['detailCount']))
 
-    def tearDown(self):
-        self.context.close()
-        self.assertEqual(self.errors, [], 'Unexpected JavaScript errors')
+    def test_population_and_bounded_svg_dom(self):
+        for size, population, budget in [((1440, 900), 21600, 224), ((390, 844), 9600, 96)]:
+            page = self.load('en', size)
+            s = self.scene(page)
+            self.assertEqual(int(s['population']), population)
+            self.assertEqual(int(s['detailLimit']), budget)
+            self.assertEqual(int(s['detailCount']), 0)
+            self.assertLess(page.locator('#scene *').count(), 800)
+            self.assertEqual(page.locator('canvas, iframe, video').count(), 0)
+            self.assert_population_conserved(page)
 
-    def load(self, page):
-        if ARGS.in_memory:
-            html = (PUBLIC / 'index.html').read_text(encoding='utf-8')
-            html = html.replace('<link rel="stylesheet" href="./style.css">', '')
-            html = html.replace('<script src="./app.js" defer></script>', '')
-            page.set_content(html)
-            page.add_style_tag(path=str(PUBLIC / 'style.css'))
-            page.add_script_tag(path=str(PUBLIC / 'app.js'))
-        else:
-            page.goto((PUBLIC / 'index.html').as_uri())
-        page.wait_for_function("document.querySelector('#scene').dataset.motion !== undefined")
-        page.wait_for_timeout(100)
+    def test_zoom_limits_and_culling(self):
+        page = self.load('en')
+        self.zoom(page, -30)
+        self.assertAlmostEqual(float(self.scene(page)['zoom']), .2)
+        self.assertTrue(page.locator('#zoom-out').is_disabled())
+        self.assertEqual(int(self.scene(page)['detailCount']), 0)
+        self.assertEqual(page.locator('#lod-label').text_content(), 'SWARM')
+        self.assert_population_conserved(page)
+        self.zoom(page, 40)
+        self.assertAlmostEqual(float(self.scene(page)['zoom']), 24)
+        self.assertTrue(page.locator('#zoom-in').is_disabled())
+        self.assertGreater(page.locator('.swarm-patch[display="none"]').count(), 0)
+        self.assert_population_conserved(page)
 
-    def camera(self):
-        return self.page.evaluate("""() => {
-          const s = document.querySelector('#scene');
-          return {x: +s.dataset.cameraX, y: +s.dataset.cameraY,
-                  zoom: +s.dataset.zoom, mode: s.dataset.mode};
-        }""")
+    def test_crossfade_weights_are_continuous_monotonic(self):
+        page = self.load('en')
+        values = page.evaluate('Array.from({length: 801}, (_,i) => KrillSwarm.weights(i/10))')
+        for key in ('shape', 'detail'):
+            self.assertEqual(values[0][key], 0)
+            self.assertEqual(values[-1][key], 1)
+            for before, after in zip(values, values[1:]):
+                self.assertGreaterEqual(after[key], before[key])
+                self.assertLess(after[key] - before[key], .02)
+                self.assertTrue(0 <= after[key] <= 1)
 
-    def snapshot(self):
-        return self.page.locator('#krill-mid > g').first.get_attribute('transform')
+    def test_repeated_lod_transitions_conserve_every_identity(self):
+        page = self.load('en')
+        first = page.locator('.swarm-dots').first.get_attribute('d')
+        for step in (5, 5, -7, 9, -18, 13, -5):
+            self.zoom(page, step)
+            self.assert_population_conserved(page)
+        page.locator('#reset-button').click()
+        page.wait_for_timeout(40)
+        self.assertEqual(page.locator('.swarm-dots').first.get_attribute('d'), first)
+        self.assertEqual(int(self.scene(page)['detailCount']), 0)
 
-    def test_static_contract(self):
-        html = (PUBLIC / 'index.html').read_text(encoding='utf-8')
-        self.assertIn('src="./app.js" defer', html)
-        self.assertIn('href="./style.css"', html)
-        self.assertNotIn('<canvas', html)
-        self.assertEqual(self.page.locator('canvas, iframe, video').count(), 0)
-        self.assertGreater(self.page.locator('.krill').count(), 160)
-        config = json.loads((ROOT / 'wrangler.workers.jsonc').read_text())
-        self.assertEqual(config['assets']['directory'], './public')
-        self.assertTrue((PUBLIC / '404.html').is_file())
-        self.assertIn("script-src 'self'", (PUBLIC / '_headers').read_text())
-
-    def test_reduced_motion_starts_paused(self):
-        self.assertEqual(self.page.locator('#scene').get_attribute('data-motion'), 'paused')
-        first = self.snapshot()
-        self.page.wait_for_timeout(150)
-        self.assertEqual(first, self.snapshot())
-
-    def test_play_pause(self):
-        first = self.snapshot()
-        self.page.locator('#pause-button').click()
-        self.page.wait_for_timeout(200)
-        self.assertNotEqual(first, self.snapshot())
-        self.page.locator('#pause-button').click()
-        first = self.snapshot()
-        self.page.wait_for_timeout(150)
-        self.assertEqual(first, self.snapshot())
-
-    def test_speed_cycle(self):
-        button = self.page.locator('#speed-button')
-        for expected in ['2×', '0.5×', '1×']:
-            button.click()
-            self.assertEqual(button.inner_text(), expected)
-
-    def test_drag(self):
-        before = self.camera()
-        self.page.mouse.move(1100, 650)
-        self.page.mouse.down()
-        self.page.mouse.move(1200, 710, steps=8)
-        self.page.mouse.up()
-        self.assertLess(self.camera()['x'], before['x'] - 80)
-        self.assertLess(self.camera()['y'], before['y'] - 50)
-        self.assertNotIn('dragging', self.page.locator('#scene').get_attribute('class') or '')
-
-    def test_wheel_zoom_preserves_anchor(self):
-        x, y = 1100, 650
-        before = self.camera()
-        base = max(1440 / 1600, 900 / 1000)
-        def unproject(c):
-            return (c['x'] + (x - 720) / (base * c['zoom']),
-                    c['y'] + (y - 450) / (base * c['zoom']))
-        anchor = unproject(before)
-        self.page.mouse.move(x, y)
-        self.page.mouse.wheel(0, -180)
-        self.page.wait_for_timeout(100)
-        after = self.camera()
-        self.assertGreater(after['zoom'], 1)
-        for a, b in zip(anchor, unproject(after)):
-            self.assertAlmostEqual(a, b, delta=.2)
-
-    def test_zoom_limits(self):
-        self.page.locator('#scene').focus()
-        for _ in range(20):
-            self.page.keyboard.press('=')
-        self.assertAlmostEqual(self.camera()['zoom'], 4)
-        self.assertTrue(self.page.locator('#zoom-in').is_disabled())
-        for _ in range(25):
-            self.page.keyboard.press('-')
-        self.assertAlmostEqual(self.camera()['zoom'], .6)
-        self.assertTrue(self.page.locator('#zoom-out').is_disabled())
-
-    def test_focus_and_cancel(self):
-        self.page.locator('#focus-button').click()
-        self.assertEqual(self.camera()['mode'], 'follow')
-        self.assertGreater(self.camera()['zoom'], 1)
-        self.assertTrue(self.page.locator('#selection-card').is_visible())
-        self.assertEqual(self.page.locator('#reticle').get_attribute('visibility'), 'visible')
-        self.page.keyboard.press('Escape')
-        self.assertEqual(self.camera()['mode'], 'free')
-        self.assertTrue(self.page.locator('#selection-card').is_hidden())
-
-    def test_click_animal(self):
-        point = self.page.evaluate("""() => {
-          for (const n of document.querySelectorAll('#krill-mid > g')) {
-            const m = n.getScreenCTM();
-            if (m.e > 650 && m.e < 1200 && m.f > 300 && m.f < 620)
-              return {x: m.e, y: m.f};
+    def test_click_on_batched_speck_promotes_same_animal(self):
+        page = self.load('en')
+        self.zoom(page, -9)
+        point = page.evaluate(r"""() => {
+          for (const path of document.querySelectorAll('.swarm-dots')) {
+            const matrix = path.getScreenCTM();
+            for (const match of path.getAttribute('d').matchAll(/M(-?[\d.]+) (-?[\d.]+)/g)) {
+              const p = new DOMPoint(+match[1], +match[2]).matrixTransform(matrix);
+              if (p.x > 400 && p.x < 1050 && p.y > 300 && p.y < 650) return {x:p.x,y:p.y};
+            }
           }
         }""")
         self.assertIsNotNone(point)
-        self.page.mouse.click(point['x'], point['y'])
-        self.assertEqual(self.camera()['mode'], 'follow')
+        page.mouse.click(point['x'], point['y'])
+        self.assertEqual(self.scene(page)['mode'], 'follow')
+        label = page.locator('#reticle-label').text_content()
+        animal_id = int(label.split()[-1]) - 1
+        selected = page.locator(f'.krill[data-krill-id="{animal_id}"]')
+        self.assertEqual(selected.count(), 1)
+        self.assertGreater(float(selected.get_attribute('data-detail')), .95)
+        page.wait_for_function('id => { const n=document.querySelector(`.krill[data-krill-id="${id}"]`); if(!n) return false; const m=n.getScreenCTM(); return Math.abs(m.e-720)<.2 && Math.abs(m.f-450)<.2; }', arg=str(animal_id))
+        matrix = selected.evaluate('el => {const m=el.getScreenCTM();return {x:m.e,y:m.f}}')
+        self.assertAlmostEqual(matrix['x'], 720, delta=.2)
+        self.assertAlmostEqual(matrix['y'], 450, delta=.2)
+        page.locator('#pause-button').click()
+        page.wait_for_timeout(180)
+        self.assertEqual(page.locator('#reticle-label').text_content(), label)
+        self.assertEqual(selected.count(), 1)
+        self.assert_population_conserved(page)
 
-    def test_double_click_detail(self):
-        self.page.mouse.dblclick(1300, 230)
-        self.assertGreaterEqual(self.camera()['zoom'], 2.5)
-        self.assertEqual(self.camera()['mode'], 'free')
+    def test_detail_budget_exhaustion_keeps_silhouettes(self):
+        page = self.load('en')
+        hit_cap = False
+        for _ in range(13):
+            self.zoom(page, 1)
+            self.assert_population_conserved(page)
+            s = self.scene(page)
+            hit_cap |= int(s['detailCount']) == int(s['detailLimit'])
+        self.assertTrue(hit_cap, 'Exercise the detail-budget fallback, not just light scenes')
 
-    def test_follow_moves_camera(self):
-        self.page.locator('#focus-button').click()
-        before = self.camera()
-        self.page.locator('#pause-button').click()
-        self.page.wait_for_timeout(300)
-        self.assertEqual(self.camera()['mode'], 'follow')
-        self.assertGreater(self.camera()['x'], before['x'])
+    def test_mobile_focus_and_rotation_preserve_population(self):
+        page = self.load('zh', (390, 844), touch=True)
+        page.locator('#focus-button').click()
+        label = page.locator('#reticle-label').text_content()
+        self.assertEqual(page.locator('#lod-label').text_content(), '近观')
+        for size in ((844, 390), (320, 568), (390, 844)):
+            page.set_viewport_size({'width': size[0], 'height': size[1]})
+            page.wait_for_timeout(60)
+            self.assertEqual(self.scene(page)['population'], '9600')
+            self.assertEqual(page.locator('#reticle-label').text_content(), label)
+            self.assert_population_conserved(page)
 
-    def test_reset(self):
-        self.page.locator('#focus-button').click()
-        self.page.locator('#reset-button').click()
-        self.assertEqual(self.camera(), {'x': 800, 'y': 500, 'zoom': 1, 'mode': 'overview'})
-        self.assertFalse(self.page.locator('body').evaluate("el => el.classList.contains('exploring')"))
+    def test_wheel_anchor_at_far_and_near_scale(self):
+        page = self.load('en')
+        x, y, base = 1050, 580, .9
+        def world(s):
+            z=float(s['zoom'])
+            return (float(s['cameraX'])+(x-720)/(base*z), float(s['cameraY'])+(y-450)/(base*z))
+        for step in (-5, 12):
+            self.zoom(page, step)
+            before = world(self.scene(page))
+            page.mouse.move(x, y); page.mouse.wheel(0, -120); page.wait_for_timeout(70)
+            for a,b in zip(before, world(self.scene(page))): self.assertAlmostEqual(a,b,delta=.15)
 
-    def test_keyboard(self):
-        self.page.locator('#scene').focus()
-        before = self.camera()['x']
-        self.page.keyboard.press('ArrowRight')
-        self.assertGreater(self.camera()['x'], before)
-        self.page.keyboard.press('f')
-        self.assertEqual(self.camera()['mode'], 'follow')
-        self.page.keyboard.press('0')
-        self.assertEqual(self.camera()['mode'], 'overview')
-        self.page.keyboard.press('Space')
-        self.assertEqual(self.page.locator('#scene').get_attribute('data-motion'), 'playing')
+    def test_pause_dialog_and_visibility_stop_simulation(self):
+        page = self.load('en')
+        patch = page.locator('.swarm-patch').nth(15)
+        first = patch.get_attribute('transform')
+        page.wait_for_timeout(100)
+        self.assertEqual(first, patch.get_attribute('transform'))
+        page.locator('#pause-button').click(); page.wait_for_timeout(140)
+        self.assertNotEqual(first, patch.get_attribute('transform'))
+        page.locator('#help-button').click(); page.wait_for_timeout(50)
+        first = patch.get_attribute('transform'); page.wait_for_timeout(100)
+        self.assertEqual(first, patch.get_attribute('transform'))
+        page.keyboard.press('Escape')
+        page.evaluate("Object.defineProperty(document, 'hidden', {configurable:true,get:()=>true});document.dispatchEvent(new Event('visibilitychange'))")
+        first = patch.get_attribute('transform'); page.wait_for_timeout(150)
+        self.assertEqual(first, patch.get_attribute('transform'))
+        page.evaluate("delete document.hidden;document.dispatchEvent(new Event('visibilitychange'))")
+        page.wait_for_timeout(150)
+        self.assertNotEqual(first, patch.get_attribute('transform'))
 
-    def test_button_space_toggles_only_once(self):
-        self.page.locator('#pause-button').focus()
-        self.page.keyboard.press('Space')
-        self.assertEqual(self.page.locator('#scene').get_attribute('data-motion'), 'playing')
+    def test_native_button_space_single_toggle_and_dialog_keys(self):
+        page = self.load('en')
+        page.locator('#pause-button').focus(); page.keyboard.press('Space')
+        self.assertEqual(self.scene(page)['motion'], 'playing')
+        page.locator('#help-button').click()
+        before = self.scene(page)['zoom']
+        page.keyboard.press('f'); page.keyboard.press('+')
+        self.assertEqual(self.scene(page)['zoom'], before)
+        self.assertNotEqual(self.scene(page)['mode'], 'follow')
 
-    def test_immersive(self):
-        self.page.locator('#immersive-button').click()
-        self.assertTrue(self.page.locator('#exit-immersive').is_visible())
-        self.assertTrue(self.page.locator('.header').evaluate('el => el.inert'))
-        self.page.keyboard.press('i')
-        self.assertTrue(self.page.locator('#exit-immersive').is_hidden())
-        self.assertFalse(self.page.locator('.header').evaluate('el => el.inert'))
+    def test_double_click_and_keyboard_reset(self):
+        page = self.load('en')
+        page.mouse.dblclick(1300, 230)
+        self.assertGreaterEqual(float(self.scene(page)['zoom']), 2.5)
+        page.keyboard.press('Home')
+        s=self.scene(page)
+        self.assertEqual(s['mode'], 'overview')
+        self.assertEqual(float(s['zoom']), 1)
+        self.assertEqual(float(s['cameraX']), 800)
+        self.assertEqual(float(s['cameraY']), 500)
 
-    def test_dialog_and_pause(self):
-        self.page.locator('#pause-button').click()
-        self.page.locator('#help-button').click()
-        self.assertTrue(self.page.locator('#about-dialog').is_visible())
-        first = self.snapshot()
-        self.page.wait_for_timeout(150)
-        self.assertEqual(first, self.snapshot())
-        self.page.keyboard.press('Escape')
-        self.assertFalse(self.page.locator('#about-dialog').is_visible())
-        self.page.wait_for_timeout(150)
-        self.assertNotEqual(first, self.snapshot())
-
-    def test_responsive_layout(self):
-        for width, height in [(390, 844), (320, 568), (844, 390), (768, 1024), (1920, 1080)]:
-            with self.subTest(viewport=(width, height)):
-                self.page.set_viewport_size({'width': width, 'height': height})
-                self.page.wait_for_timeout(80)
-                self.assertFalse(self.page.evaluate('document.documentElement.scrollWidth > innerWidth'))
-                box = self.page.locator('.camera-tools').bounding_box()
-                self.assertGreaterEqual(box['x'], 0)
-                self.assertLessEqual(box['x'] + box['width'], width + 1)
-                self.assertLessEqual(box['y'] + box['height'], height)
-
-    def test_touch_pinch_and_cancel(self):
-        context = self.browser.new_context(viewport={'width': 390, 'height': 844},
-                                           has_touch=True, is_mobile=True, reduced_motion='reduce')
-        try:
-            page = context.new_page()
-            page.on('pageerror', lambda error: self.errors.append(str(error)))
-            self.load(page)
-            cdp = context.new_cdp_session(page)
-            def touch(kind, points):
-                cdp.send('Input.dispatchTouchEvent', {'type': kind, 'touchPoints': points})
-            touch('touchStart', [{'x': 125, 'y': 540, 'id': 1}, {'x': 265, 'y': 540, 'id': 2}])
-            touch('touchMove', [{'x': 65, 'y': 540, 'id': 1}, {'x': 325, 'y': 540, 'id': 2}])
-            touch('touchEnd', [])
-            page.wait_for_timeout(100)
-            self.assertGreater(float(page.locator('#scene').get_attribute('data-zoom')), 1.5)
-            before = float(page.locator('#scene').get_attribute('data-camera-x'))
-            touch('touchStart', [{'x': 160, 'y': 540, 'id': 3}])
-            touch('touchMove', [{'x': 220, 'y': 570, 'id': 3}])
-            touch('touchCancel', [])
-            page.wait_for_timeout(100)
-            self.assertLess(float(page.locator('#scene').get_attribute('data-camera-x')), before)
-            self.assertNotIn('dragging', page.locator('#scene').get_attribute('class') or '')
-        finally:
-            context.close()
+    def test_touch_cancel_releases_capture(self):
+        page = self.load('en', (390,844), touch=True)
+        cdp = page.context.new_cdp_session(page)
+        for kind, points in [('touchStart',[{'x':160,'y':530,'id':1}]), ('touchMove',[{'x':220,'y':540,'id':1}]), ('touchCancel',[])]:
+            cdp.send('Input.dispatchTouchEvent', {'type':kind, 'touchPoints':points})
+        self.assertNotIn('dragging', page.locator('#scene').get_attribute('class') or '')
+        self.assertLess(float(self.scene(page)['cameraX']), 1020)
 
 
 if __name__ == '__main__':
-    unittest.main(argv=[__file__, *REMAINING], verbosity=2)
+    unittest.main(argv=[__file__, *harness.REMAINING], verbosity=2)

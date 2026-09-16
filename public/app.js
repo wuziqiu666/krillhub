@@ -42,10 +42,9 @@
     node, depth: Number(node.dataset.depth), scale: 1, tx: 0, ty: 0
   }));
   const layerById = new Map(layers.map((layer) => [layer.node.id, layer]));
-  const animals = [];
   const dust = [];
   const mobile = window.innerWidth <= 650;
-  const limits = { minZoom: 0.6, maxZoom: 4, minX: -450, maxX: 2050, minY: -300, maxY: 1300 };
+  const limits = { minZoom: 0.2, maxZoom: 24, minX: -6200, maxX: 8000, minY: -2800, maxY: 3300 };
   const camera = { x: 800, y: 500, zoom: 1 };
   const target = { ...camera };
   let width = 1600, height = 1000, baseScale = 1, initialized = false;
@@ -53,36 +52,9 @@
   let selected = null, frame = null, lastTime = performance.now(), immersive = false;
   let toastTimer = null, lastZoomText = '';
 
-  // Seeded spacing keeps the first composition stable, while each animal has its own phase.
-  const schools = [
-    { id: 'krill-back', count: mobile ? 70 : 120, min: .055, max: .12, spread: 245, offset: -40, speed: 8, distant: true },
-    { id: 'krill-mid', count: mobile ? 150 : 240, min: .10, max: .29, spread: 145, offset: 20, speed: 14 },
-    { id: 'krill-front', count: mobile ? 19 : 28, min: .4, max: .85, spread: 210, offset: 205, speed: 19 }
-  ];
-  for (const school of schools) {
-    const layer = layerById.get(school.id);
-    if (school.distant) layer.node.setAttribute('pointer-events', 'none');
-    for (let i = 0; i < school.count; i++) {
-      const index = animals.length;
-      const scale = school.min + random() * (school.max - school.min);
-      const node = makeSvg('g', {
-        class: school.distant ? 'distant-krill' : 'krill',
-        opacity: school.distant ? .18 + random() * .27 : .55 + random() * .42
-      }, layer.node);
-      if (!school.distant) {
-        node.dataset.krillId = String(index);
-        makeSvg('ellipse', { cx: 5, cy: 2, rx: 59, ry: 23, fill: 'transparent', 'pointer-events': 'all' }, node);
-      }
-      makeSvg('use', { href: school.distant ? '#krill-distant' : '#krill-art' }, node);
-      animals.push({
-        node, layer, index, scale, distant: Boolean(school.distant),
-        startX: -780 + (i + random() * .8) / school.count * 3160,
-        offset: school.offset + (random() + random() - 1) * school.spread,
-        phase: random() * Math.PI * 2, velocity: school.speed * (.75 + random() * .5),
-        x: 0, y: 0
-      });
-    }
-  }
+  const swarm = window.KrillSwarm.create(svg, layerById, mobile);
+  const animals = swarm.animals;
+
   for (const [id, count] of [['dust-back', mobile ? 65 : 130], ['dust-front', mobile ? 20 : 35]]) {
     for (let i = 0; i < count; i++) {
       const node = makeSvg('circle', {
@@ -120,8 +92,15 @@
       layer.scale = baseScale * Math.pow(camera.zoom, layer.depth);
       layer.tx = width / 2 - (800 + (camera.x - 800) * layer.depth) * layer.scale;
       layer.ty = height / 2 - (500 + (camera.y - 500) * layer.depth) * layer.scale;
-      layer.node.setAttribute('transform', `translate(${layer.tx.toFixed(3)} ${layer.ty.toFixed(3)}) scale(${layer.scale.toFixed(5)})`);
+      const transform = `translate(${layer.tx.toFixed(3)} ${layer.ty.toFixed(3)}) scale(${layer.scale.toFixed(5)})`;
+      if (layer.transform !== transform) {
+        layer.node.setAttribute('transform', transform);
+        layer.transform = transform;
+      }
     }
+    const tier = swarm.render(width, height, selected);
+    const tierText = t(`lod-${tier}`);
+    if ($('lod-label').textContent !== tierText) $('lod-label').textContent = tierText;
     const zoomText = `${Math.round(camera.zoom * 100)}%`;
     if (lastZoomText !== zoomText) {
       $('zoom-label').textContent = zoomText;
@@ -137,9 +116,7 @@
       $('reticle').setAttribute('transform', `translate(${p.x.toFixed(2)} ${p.y.toFixed(2)})`);
     }
   }
-  function screenPosition(animal) {
-    return { x: animal.x * animal.layer.scale + animal.layer.tx, y: animal.y * animal.layer.scale + animal.layer.ty };
-  }
+  function screenPosition(animal) { return swarm.screenPosition(animal); }
   function worldPoint(x, y) {
     return { x: camera.x + (x - width / 2) / (baseScale * camera.zoom), y: camera.y + (y - height / 2) / (baseScale * camera.zoom) };
   }
@@ -153,10 +130,12 @@
     svg.dataset.mode = 'free';
     $('reticle').setAttribute('visibility', 'hidden');
     $('selection-card').hidden = true;
+    requestTick();
   }
   function focusAnimal(animal) {
     if (!animal) return;
     selected = animal;
+    swarm.position(animal);
     explore();
     svg.dataset.mode = 'follow';
     const label = t('krill-label', { number: String(animal.index + 1).padStart(3, '0') });
@@ -167,26 +146,10 @@
     setCamera({
       x: 800 + (animal.x - 800) / animal.layer.depth,
       y: 500 + (animal.y - 500) / animal.layer.depth,
-      zoom: animal.scale > .35 ? 2 : 2.8
+      zoom: clamp(Math.pow(Math.min(190, width * .38, height * .28) / (160 * animal.scale * baseScale), 1 / animal.layer.depth), limits.minZoom, limits.maxZoom)
     });
   }
-  function focusNearest() {
-    const visible = animals.filter((a) => {
-      const p = screenPosition(a);
-      return !a.distant && p.x > 35 && p.x < width - 35 && p.y > 100 && p.y < height - 145;
-    });
-    const score = (a) => {
-      const p = screenPosition(a);
-      return Math.hypot(p.x - width * .57, p.y - height * .56) / (a.scale > .35 ? 1.45 : 1);
-    };
-    visible.sort((a, b) => score(a) - score(b));
-    if (visible[0]) focusAnimal(visible[0]);
-    else {
-      // A panned-away viewport still has a useful keyboard-accessible focus destination.
-      const candidates = animals.filter((a) => !a.distant && a.x > 500 && a.x < 1250);
-      focusAnimal(candidates[0]);
-    }
-  }
+  function focusNearest() { focusAnimal(swarm.nearest(width, height)); }
   function resetView() {
     clearSelection();
     svg.dataset.mode = 'overview';
@@ -201,20 +164,12 @@
     setCamera({ x: anchor.x - (x - width / 2) / (baseScale * zoom), y: anchor.y - (y - height / 2) / (baseScale * zoom), zoom }, true);
   }
   function updateAnimals() {
-    for (const animal of animals) {
-      const previousX = animal.x;
-      animal.x = mod(animal.startX + elapsed * animal.velocity + 800, 3200) - 800;
-      const phase = animal.x * .004 + .4 + Math.sin(elapsed * .055) * .2;
-      animal.y = 615 - .145 * animal.x + Math.sin(phase) * 110 + animal.offset + Math.sin(elapsed * 1.1 + animal.phase) * 5;
-      const slope = -.145 + .44 * Math.cos(phase);
-      const angle = Math.atan2(slope, 1) * 180 / Math.PI + Math.sin(elapsed * 1.8 + animal.phase) * 2;
-      const breath = 1 + Math.sin(elapsed * 3.1 + animal.phase) * .035;
-      animal.node.setAttribute('transform', `translate(${animal.x.toFixed(2)} ${animal.y.toFixed(2)}) rotate(${angle.toFixed(2)}) scale(${animal.scale.toFixed(3)} ${(animal.scale * breath).toFixed(3)})`);
-      // Never sweep the camera across the whole scene when a procedural loop wraps.
-      if (selected === animal && Math.abs(animal.x - previousX) > 1600) {
+    swarm.update(elapsed);
+    if (selected) {
+      if (selected.patch.wrapped) {
         clearSelection();
         notify(t('lost-krill'));
-      }
+      } else swarm.position(selected);
     }
     for (const particle of dust) {
       particle.node.setAttribute('cx', (particle.x + Math.sin(elapsed * .07 + particle.phase) * 15).toFixed(2));
@@ -240,7 +195,7 @@
     }
     renderCamera();
     const settling = Math.abs(target.x - camera.x) + Math.abs(target.y - camera.y) + Math.abs(target.zoom - camera.zoom) > .001;
-    if (!document.hidden && (moving || settling)) frame = window.requestAnimationFrame(tick);
+    if (frame === null && !document.hidden && (moving || settling)) frame = window.requestAnimationFrame(tick);
   }
   function requestTick() {
     if (frame === null && !document.hidden) {
@@ -329,15 +284,7 @@
     if (!cancelled && pointers.size === 0 && !moved && !pinched) {
       const point = localPoint(event);
       let animal = hit ? animals[Number(hit.dataset.krillId)] : null;
-      if (!animal) {
-        let best = 28;
-        for (const candidate of animals) {
-          if (candidate.distant) continue;
-          const p = screenPosition(candidate);
-          const distance = Math.hypot(point.x - p.x, point.y - p.y);
-          if (distance < best) { best = distance; animal = candidate; }
-        }
-      }
+      if (!animal) animal = swarm.pick(point.x, point.y);
       if (animal) focusAnimal(animal);
       else clearSelection();
     }

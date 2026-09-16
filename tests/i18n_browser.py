@@ -91,6 +91,7 @@ class LanguageBrowserTests(unittest.TestCase):
             page.set_content(text)
             page.add_style_tag(path=str(PUBLIC / 'style.css'))
             if javascript:
+                page.add_script_tag(path=str(PUBLIC / 'swarm.js'))
                 page.add_script_tag(path=str(PUBLIC / 'app.js'))
         else:
             response = page.goto(self.origin + ('/' if code == 'en' else '/zh/'))
@@ -106,7 +107,7 @@ class LanguageBrowserTests(unittest.TestCase):
             page = self.load(code)
             self.assertEqual(page.locator('html').get_attribute('lang'), lang)
             self.assertEqual(page.title(), CATALOGS[code]['text']['page_title'])
-            self.assertGreater(page.locator('.krill').count(), 160)
+            self.assertGreaterEqual(int(page.locator('#scene').get_attribute('data-population')), 9600)
             self.assertEqual(page.locator('#pause-button').get_attribute('aria-label'), CATALOGS[code]['messages']['play'])
             animal = page.locator('#krill-mid > g').first
             first = animal.get_attribute('transform')

@@ -28,12 +28,12 @@
     "close_help": "关闭说明",
     "skip": "跳到交互海洋",
     "scene_title": "微光洄游 · 一片流动的海",
-    "scene_description": "分层的蓝绿色海水中，珊瑚粉色磷虾沿着洋流游动。拖动平移，滚轮或双指缩放，点击磷虾跟随。按 F 聚焦，按 0 复位，空格暂停。",
+    "scene_description": "密集的珊瑚粉色虾群穿过蓝绿色海水。放大后，远处微点逐渐显现磷虾个体。拖动平移，滚轮或双指缩放，点击微点跟随。F 聚焦，0 复位，空格暂停。",
     "about": "关于这片海",
     "eyebrow": "微光洄游",
     "intro_lead": "渺小的生命，也有辽阔的远方。",
-    "intro_line_one": "潜入这片安静的海，",
-    "intro_line_two": "随一群磷虾，赴一场不息的迁徙。",
+    "intro_line_one": "远看，是成千上万的生命汇成潮流。",
+    "intro_line_two": "近看，每一个微点都是一段旅程。",
     "explore": "跟随一束微光",
     "following": "正在跟随",
     "motion": "随潮而行",
@@ -47,12 +47,12 @@
     "exit_immersive": "退出沉浸",
     "noscript": "请开启 JavaScript，以观看磷虾迁徙动画并使用拖动、缩放与聚焦功能。不开启时，仍可阅读文案和切换语言。",
     "about_title": "一片海，一场微小的远行。",
-    "about_copy": "Krillhub 是一幅可以探索的动态插画。光、水流与虾群以 SVG 分层绘制；远景缓行，近景掠过，以平面视差构成 2.5D 空间。",
+    "about_copy": "Krillhub 是一幅可以探索的 SVG 动态插画。密集虾群形成团块、条带与间隙；不同平面图层以速度差构成 2.5D 视差。逐渐放大，微点显现轮廓，再成为细致的磷虾，不需要 3D 场景。",
     "art_note": "这是一种关于磷虾迁徙的艺术表达，不是物种行为、水深或真实海域的科学模拟。",
     "help_pan": "探索画面",
     "help_pan_keys": "鼠标 / 单指拖动 · 方向键",
     "help_zoom": "放大缩小",
-    "help_zoom_keys": "滚轮 / 双指捏合",
+    "help_zoom_keys": "滚轮 / 双指捏合 · 20%–2,400%",
     "help_focus": "聚焦跟随",
     "help_focus_keys": "点击磷虾",
     "help_detail": "局部近观",
@@ -73,7 +73,9 @@
     "playback_sub": "自在流动",
     "field_notes": "观察札记 / 001",
     "krill": "磷虾",
-    "language_label": "语言"
+    "language_label": "语言",
+    "lod_swarm": "虾群",
+    "lod_note": "支持 20%–2,400% 缩放：远处微点逐渐显现轮廓，近看成为完整的 SVG 磷虾。每个微点保留自己的身份。亮度与数量均为艺术表现，并非实测数据。"
   },
   "messages": {
     "krill-label": "磷虾 {number}",
@@ -88,6 +90,9 @@
     "enter-immersive": "进入沉浸模式",
     "fullscreen-unavailable": "当前浏览器未允许全屏，可以使用沉浸模式。",
     "exit-fullscreen": "退出全屏",
-    "enter-fullscreen": "进入全屏"
+    "enter-fullscreen": "进入全屏",
+    "lod-swarm": "虾群",
+    "lod-shapes": "轮廓",
+    "lod-detail": "近观"
   }
 }

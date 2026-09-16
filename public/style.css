@@ -191,3 +191,11 @@ kbd { border: 1px solid #456067; border-radius: 3px; padding: 1px 4px; font-size
   .brand-mark { display: none; }
   .brand { font-size: 22px; }
 }
+
+/* Semantic zoom readout. Its width stays fixed as percentages gain digits. */
+.zoom-readout { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 54px; gap: 3px; }
+#lod-label { color: #90aaa8; font-size: 7px; line-height: 1; letter-spacing: .8px; }
+.lod-note { border-left: 1px solid var(--line); padding-left: 13px; }
+.swarm-dots, .swarm-shapes { pointer-events: none; }
+@media (max-width: 360px) { .zoom-readout { min-width: 48px; } }
+#current-layer path { vector-effect: non-scaling-stroke; }

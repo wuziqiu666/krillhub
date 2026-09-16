@@ -22,6 +22,7 @@
   <meta property="og:locale:alternate" content="zh_CN">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%230b2935'/%3E%3Cpath d='M10 34Q18 13 40 24L48 33Q31 26 19 42Z' fill='%23f0b29e'/%3E%3Cpath d='M41 26Q52 10 59 18M43 29Q55 19 61 26M20 37L15 48M26 33L26 46M33 31L36 43' fill='none' stroke='%23f0b29e' stroke-width='2'/%3E%3Ccircle cx='41' cy='26' r='2' fill='%230b2935'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./style.css">
+  <script src="./swarm.js" defer></script>
   <script src="./app.js" defer></script>
 </head>
 <body>
@@ -39,10 +40,13 @@
     data-i18n-enter-immersive="Enter immersive mode"
     data-i18n-fullscreen-unavailable="Fullscreen is unavailable in this browser. Try immersive mode instead."
     data-i18n-exit-fullscreen="Exit fullscreen"
-    data-i18n-enter-fullscreen="Enter fullscreen">
+    data-i18n-enter-fullscreen="Enter fullscreen"
+    data-i18n-lod-swarm="SWARM"
+    data-i18n-lod-shapes="SHAPES"
+    data-i18n-lod-detail="DETAIL">
     <svg id="scene" xmlns="http://www.w3.org/2000/svg" tabindex="0" role="region" aria-label="Interactive krill migration scene" aria-describedby="scene-help" viewBox="0 0 1600 1000">
       <title>The quiet migration — an ocean in motion</title>
-      <desc>Coral-pink krill drift through layers of blue-green water. Drag to pan, scroll or pinch to zoom, and select a krill to follow. Press F to focus, 0 to reset, and Space to pause.</desc>
+      <desc>Dense coral-pink swarms move through blue-green water. Distant specks reveal individual krill as you zoom in. Drag to pan, scroll or pinch to zoom, select a speck to follow. F focuses, 0 resets, Space pauses.</desc>
       <defs>
         <linearGradient id="ocean-fill" x1="0" y1="0" x2=".3" y2="1">
           <stop stop-color="#12444c"/><stop offset=".42" stop-color="#0a2936"/><stop offset="1" stop-color="#051520"/>
@@ -113,7 +117,7 @@
         </g>
       </g>
       <g id="dust-back" data-depth="0.55" pointer-events="none"></g>
-      <g id="krill-back" data-depth="0.68" aria-hidden="true"></g>
+      <g id="krill-back" data-depth="0.86" aria-hidden="true"></g>
       <g id="current-layer" data-depth="0.85" pointer-events="none" fill="none" stroke="#87bdb5" stroke-opacity=".065">
         <path d="M-500 775C150 540 300 900 750 570S1370 170 2060 325"/>
         <path d="M-500 803C150 560 300 930 760 594S1390 190 2060 350"/>
@@ -151,7 +155,7 @@
       <div class="eyebrow"><span class="live-dot"></span>KRILL IN MOTION <span class="eyebrow-line"></span> THE QUIET MIGRATION</div>
       <h1 id="page-title">Small lives.<br><em>Endless tides.</em></h1>
       <p class="intro-cn">Even the smallest lives have a world to explore.</p>
-      <p class="intro-copy">Dive into a quiet ocean.<br>Follow a swarm of krill on an endless journey.</p>
+      <p class="intro-copy">An ocean of tiny lives, moving as one.<br>Zoom in. Discover the individual.</p>
       <button id="explore-button" class="explore-button"><span>Follow a little light</span><svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><use href="#icon-arrow"/></svg></button>
       <div class="intro-footnote">A LIVING SVG SEASCAPE <span> / </span> EST. 2026</div>
     </section>
@@ -170,7 +174,7 @@
       </div>
       <div class="camera-tools" role="toolbar" aria-label="Scene controls">
         <button id="zoom-out" class="icon-button" aria-label="Zoom out" title="Zoom out · −"><svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><use href="#icon-minus"/></svg></button>
-        <output id="zoom-label" aria-label="Scene zoom level">100%</output>
+        <div class="zoom-readout"><output id="zoom-label" aria-label="Scene zoom level">100%</output><span id="lod-label" aria-hidden="true">SWARM</span></div>
         <button id="zoom-in" class="icon-button" aria-label="Zoom in" title="Zoom in · +"><svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><use href="#icon-plus"/></svg></button>
         <span class="tool-divider" aria-hidden="true"></span>
         <button id="focus-button" class="focus-button" aria-label="Focus on and follow a krill" title="Focus and follow · F"><svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><use href="#icon-focus"/></svg><span>Follow a krill</span></button>
@@ -189,11 +193,12 @@
     <div class="dialog-top"><span class="eyebrow">FIELD NOTES / 001</span><button id="close-dialog" class="icon-button" aria-label="Close instructions">×</button></div>
     <svg class="about-krill" viewBox="-80 -45 190 90" aria-hidden="true"><use href="#krill-art"/></svg>
     <h2 id="about-title">One ocean. A tiny adventure.</h2>
-    <p>Krillhub is an animated illustration you can explore. Light, currents and krill are drawn in SVG layers. Distant layers drift slowly while nearby layers glide past, creating 2.5D depth through flat parallax.</p>
+    <p>Krillhub is an animated SVG illustration with dense, patchy swarms. Flat layers drift at different speeds for 2.5D parallax. Zooming reveals silhouettes and detailed krill without switching to a 3D scene.</p>
     <p class="art-note">This is an artistic interpretation of krill migration, not a scientific simulation of animal behaviour, water depth or a real ocean location.</p>
+    <p class="lod-note">Zoom from 20% to 2,400%: distant specks become silhouettes, then detailed SVG krill. Every speck keeps its identity. Brightness and population are illustrative, not measured data.</p>
     <div class="instructions">
       <div><span>Explore</span><span>Mouse / one-finger drag · Arrow keys</span></div>
-      <div><span>Zoom</span><span>Scroll / pinch · <kbd>+</kbd> <kbd>−</kbd></span></div>
+      <div><span>Zoom</span><span>Scroll / pinch · 20–2,400% · <kbd>+</kbd> <kbd>−</kbd></span></div>
       <div><span>Focus and follow</span><span>Select a krill · <kbd>F</kbd></span></div>
       <div><span>Take a closer look</span><span>Double-click the scene</span></div>
       <div><span>Pause / play</span><span><kbd>Space</kbd></span></div>

@@ -22,6 +22,7 @@
   <meta property="og:locale:alternate" content="en_US">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%230b2935'/%3E%3Cpath d='M10 34Q18 13 40 24L48 33Q31 26 19 42Z' fill='%23f0b29e'/%3E%3Cpath d='M41 26Q52 10 59 18M43 29Q55 19 61 26M20 37L15 48M26 33L26 46M33 31L36 43' fill='none' stroke='%23f0b29e' stroke-width='2'/%3E%3Ccircle cx='41' cy='26' r='2' fill='%230b2935'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="../style.css">
+  <script src="../swarm.js" defer></script>
   <script src="../app.js" defer></script>
 </head>
 <body>
@@ -39,10 +40,13 @@
     data-i18n-enter-immersive="进入沉浸模式"
     data-i18n-fullscreen-unavailable="当前浏览器未允许全屏，可以使用沉浸模式。"
     data-i18n-exit-fullscreen="退出全屏"
-    data-i18n-enter-fullscreen="进入全屏">
+    data-i18n-enter-fullscreen="进入全屏"
+    data-i18n-lod-swarm="虾群"
+    data-i18n-lod-shapes="轮廓"
+    data-i18n-lod-detail="近观">
     <svg id="scene" xmlns="http://www.w3.org/2000/svg" tabindex="0" role="region" aria-label="可交互的磷虾迁徙画面" aria-describedby="scene-help" viewBox="0 0 1600 1000">
       <title>微光洄游 · 一片流动的海</title>
-      <desc>分层的蓝绿色海水中，珊瑚粉色磷虾沿着洋流游动。拖动平移，滚轮或双指缩放，点击磷虾跟随。按 F 聚焦，按 0 复位，空格暂停。</desc>
+      <desc>密集的珊瑚粉色虾群穿过蓝绿色海水。放大后，远处微点逐渐显现磷虾个体。拖动平移，滚轮或双指缩放，点击微点跟随。F 聚焦，0 复位，空格暂停。</desc>
       <defs>
         <linearGradient id="ocean-fill" x1="0" y1="0" x2=".3" y2="1">
           <stop stop-color="#12444c"/><stop offset=".42" stop-color="#0a2936"/><stop offset="1" stop-color="#051520"/>
@@ -113,7 +117,7 @@
         </g>
       </g>
       <g id="dust-back" data-depth="0.55" pointer-events="none"></g>
-      <g id="krill-back" data-depth="0.68" aria-hidden="true"></g>
+      <g id="krill-back" data-depth="0.86" aria-hidden="true"></g>
       <g id="current-layer" data-depth="0.85" pointer-events="none" fill="none" stroke="#87bdb5" stroke-opacity=".065">
         <path d="M-500 775C150 540 300 900 750 570S1370 170 2060 325"/>
         <path d="M-500 803C150 560 300 930 760 594S1390 190 2060 350"/>
@@ -151,7 +155,7 @@
       <div class="eyebrow"><span class="live-dot"></span>微光洄游 <span class="eyebrow-line"></span> 不息的迁徙</div>
       <h1 id="page-title">微小生命。<br><em>无尽潮汐。</em></h1>
       <p class="intro-cn">渺小的生命，也有辽阔的远方。</p>
-      <p class="intro-copy">潜入这片安静的海，<br>随一群磷虾，赴一场不息的迁徙。</p>
+      <p class="intro-copy">远看，是成千上万的生命汇成潮流。<br>近看，每一个微点都是一段旅程。</p>
       <button id="explore-button" class="explore-button"><span>跟随一束微光</span><svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><use href="#icon-arrow"/></svg></button>
       <div class="intro-footnote">动态 SVG 海景 <span> / </span> 始于 2026</div>
     </section>
@@ -170,7 +174,7 @@
       </div>
       <div class="camera-tools" role="toolbar" aria-label="画面视角控制">
         <button id="zoom-out" class="icon-button" aria-label="缩小" title="缩小 · −"><svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><use href="#icon-minus"/></svg></button>
-        <output id="zoom-label" aria-label="画面缩放比例">100%</output>
+        <div class="zoom-readout"><output id="zoom-label" aria-label="画面缩放比例">100%</output><span id="lod-label" aria-hidden="true">虾群</span></div>
         <button id="zoom-in" class="icon-button" aria-label="放大" title="放大 · +"><svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><use href="#icon-plus"/></svg></button>
         <span class="tool-divider" aria-hidden="true"></span>
         <button id="focus-button" class="focus-button" aria-label="聚焦并跟随一只磷虾" title="聚焦跟随 · F"><svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><use href="#icon-focus"/></svg><span>聚焦虾群</span></button>
@@ -189,11 +193,12 @@
     <div class="dialog-top"><span class="eyebrow">观察札记 / 001</span><button id="close-dialog" class="icon-button" aria-label="关闭说明">×</button></div>
     <svg class="about-krill" viewBox="-80 -45 190 90" aria-hidden="true"><use href="#krill-art"/></svg>
     <h2 id="about-title">一片海，一场微小的远行。</h2>
-    <p>Krillhub 是一幅可以探索的动态插画。光、水流与虾群以 SVG 分层绘制；远景缓行，近景掠过，以平面视差构成 2.5D 空间。</p>
+    <p>Krillhub 是一幅可以探索的 SVG 动态插画。密集虾群形成团块、条带与间隙；不同平面图层以速度差构成 2.5D 视差。逐渐放大，微点显现轮廓，再成为细致的磷虾，不需要 3D 场景。</p>
     <p class="art-note">这是一种关于磷虾迁徙的艺术表达，不是物种行为、水深或真实海域的科学模拟。</p>
+    <p class="lod-note">支持 20%–2,400% 缩放：远处微点逐渐显现轮廓，近看成为完整的 SVG 磷虾。每个微点保留自己的身份。亮度与数量均为艺术表现，并非实测数据。</p>
     <div class="instructions">
       <div><span>探索画面</span><span>鼠标 / 单指拖动 · 方向键</span></div>
-      <div><span>放大缩小</span><span>滚轮 / 双指捏合 · <kbd>+</kbd> <kbd>−</kbd></span></div>
+      <div><span>放大缩小</span><span>滚轮 / 双指捏合 · 20%–2,400% · <kbd>+</kbd> <kbd>−</kbd></span></div>
       <div><span>聚焦跟随</span><span>点击磷虾 · <kbd>F</kbd></span></div>
       <div><span>局部近观</span><span>双击画面</span></div>
       <div><span>暂停 / 播放</span><span><kbd>Space</kbd></span></div>
